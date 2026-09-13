@@ -35,7 +35,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     import torch
-
     from ultralytics import YOLO
 
     configure_utf8_console()

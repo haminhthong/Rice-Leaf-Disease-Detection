@@ -1,6 +1,7 @@
 import io
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -8,29 +9,34 @@ from app.api import app
 from rice_leaf_detection.inference import Detection, Prediction
 
 
-def test_health() -> None:
-    response = TestClient(app).get("/health")
+@pytest.fixture(scope="module")
+def client() -> TestClient:
+    return TestClient(app)
+
+
+def test_health(client: TestClient) -> None:
+    response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_tu_choi_dinh_dang_file_khong_ho_tro() -> None:
-    response = TestClient(app).post(
+def test_tu_choi_dinh_dang_file_khong_ho_tro(client: TestClient) -> None:
+    response = client.post(
         "/predict", files={"file": ("du-lieu.txt", b"abc_not_image_content", "text/plain")}
     )
     assert response.status_code == 415
 
 
-def test_tu_choi_file_vuot_10_mb() -> None:
+def test_tu_choi_file_vuot_10_mb(client: TestClient) -> None:
     large_content = b"a" * (10 * 1024 * 1024 + 1)
-    response = TestClient(app).post(
-        "/predict", files={"file": ("large.jpg", large_content, "image/jpeg")}
-    )
+    response = client.post("/predict", files={"file": ("large.jpg", large_content, "image/jpeg")})
     assert response.status_code == 413
 
 
 @patch("app.api.get_detector")
-def test_predict_thanh_cong_voi_model_mock(mock_get_detector: MagicMock) -> None:
+def test_predict_thanh_cong_voi_model_mock(
+    mock_get_detector: MagicMock, client: TestClient
+) -> None:
     mock_detector = MagicMock()
     mock_prediction = Prediction(
         detections=[
@@ -53,7 +59,7 @@ def test_predict_thanh_cong_voi_model_mock(mock_get_detector: MagicMock) -> None
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG")
 
-    response = TestClient(app).post(
+    response = client.post(
         "/predict", files={"file": ("sample.jpg", buffer.getvalue(), "image/jpeg")}
     )
 
@@ -66,7 +72,9 @@ def test_predict_thanh_cong_voi_model_mock(mock_get_detector: MagicMock) -> None
 
 
 @patch("app.api.get_detector")
-def test_predict_no_detection_voi_model_mock(mock_get_detector: MagicMock) -> None:
+def test_predict_no_detection_voi_model_mock(
+    mock_get_detector: MagicMock, client: TestClient
+) -> None:
     mock_detector = MagicMock()
     mock_prediction = Prediction(
         detections=[],
@@ -81,7 +89,7 @@ def test_predict_no_detection_voi_model_mock(mock_get_detector: MagicMock) -> No
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG")
 
-    response = TestClient(app).post(
+    response = client.post(
         "/predict", files={"file": ("clean_leaf.jpg", buffer.getvalue(), "image/jpeg")}
     )
 
@@ -93,12 +101,12 @@ def test_predict_no_detection_voi_model_mock(mock_get_detector: MagicMock) -> No
 
 
 @patch("app.api.get_detector", side_effect=FileNotFoundError("weights.pt"))
-def test_predict_khi_thieu_weights(_mock_get_detector: MagicMock) -> None:
+def test_predict_khi_thieu_weights(_mock_get_detector: MagicMock, client: TestClient) -> None:
     img = Image.new("RGB", (100, 100), color="green")
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG")
 
-    response = TestClient(app).post(
+    response = client.post(
         "/predict", files={"file": ("sample.jpg", buffer.getvalue(), "image/jpeg")}
     )
     assert response.status_code == 503

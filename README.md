@@ -65,7 +65,7 @@ flowchart TD
 rice-leaf-disease-recognition/
 ├── app/
 │   ├── api.py                  # FastAPI REST Service: /health, /predict
-│   ├── dashboard.py            # Streamlit Interactive Web Dashboard
+│   ├── dashboard.py            # Streamlit Interactive Web Dashboard (6 Tabs cao cấp)
 │   ├── dependencies.py         # Singleton detector loader
 │   ├── schemas.py              # Pydantic request/response schemas
 │   ├── settings.py             # Cấu hình runtime từ biến môi trường
@@ -73,8 +73,9 @@ rice-leaf-disease-recognition/
 ├── configs/
 │   └── default.yaml            # Cấu hình siêu tham số mô hình & huấn luyện
 ├── data/
-│   ├── README.md               # Data Card chi tiết
-│   └── sample/                 # Ảnh mẫu thử nghiệm nhanh
+│   ├── raw/                    # Dữ liệu nguồn nén nguyên bản (.zip)
+│   ├── sample/                 # Bộ ảnh mẫu thực địa thử nghiệm 1-click
+│   └── README.md               # Data Card chi tiết
 ├── scripts/
 │   ├── prepare_data.py         # Bước 1: Làm sạch và chia tập dữ liệu
 │   ├── train.py                # Bước 2: Huấn luyện mô hình YOLOv8
@@ -92,11 +93,14 @@ rice-leaf-disease-recognition/
 │   ├── prepare.py              # Logic tiền xử lý và group-aware split
 │   ├── train.py                # Logic huấn luyện với Ultralytics
 │   └── utils.py                # Tiện ích hash, seed, safe ZIP extraction
-├── tests/                      # Bộ Unit Tests toàn diện
+├── tests/                      # Bộ Unit Tests toàn diện (44 tests)
 ├── MODEL_CARD.md              # Model Card (phạm vi, độ đo, giới hạn)
 ├── pyproject.toml             # Khai báo package và công cụ kiểm thử
 └── requirements.txt            # Danh mục phụ thuộc chính
 ```
+
+> [!NOTE]
+> **Dự án chạy Native thuần Python**: Toàn bộ hệ thống được thiết kế để thực thi trực tiếp trên môi trường máy chủ hoặc máy tính cá nhân qua Python virtual environment (`venv`), không phụ thuộc Docker hay container ảo hóa.
 
 ---
 
@@ -155,13 +159,16 @@ python scripts/predict.py --weights runs/train/yolov8s_640/weights/best.pt --sou
 
 ## 6. Giao Diện & Dịch Vụ Ứng Dụng
 
-### 6.1. Streamlit Dashboard (Demo Trực Quan Cao Cấp)
-Giao diện Precision Agriculture tương tác trực quan:
-- **Thử nghiệm 1-click**: Tích hợp sẵn ảnh mẫu bệnh Bạc lá và Đốm nâu trong `data/sample/` để trải nghiệm tức thì mà không cần tìm kiếm file ảnh bên ngoài.
-- **Phân tích định lượng**: Hiển thị bảng chi tiết tọa độ Bounding Box, tỷ lệ diện tích tổn thương (% diện tích lá) và thời gian suy luận (latency ms).
-- **Khuyến cáo nông học thực tiễn**: Tự động gợi ý biện pháp kỹ thuật đồng ruộng (quản lý phân đạm/kali, chế độ nước, vệ sinh giống) tương ứng với từng mầm bệnh phát hiện được.
-- **Báo cáo dữ liệu & Chống rò rỉ**: Thống kê số lượng ảnh làm sạch, ảnh trùng SHA-256 đã loại bỏ và nhóm biến thể pHash.
+### 6.1. Streamlit Dashboard (Trực Quan Cao Cấp)
+Giao diện **Precision Agriculture AI Dashboard** hiện đại với 6 tab chuyên sâu:
+1. **🎯 Chẩn Đoán & Định Vị**: Thử nghiệm 1-click với mẫu thực địa (Bạc lá lúa, Đốm nâu, Nhiễm chéo) hoặc tải ảnh từ thiết bị; tính toán diện tích tổn thương (**Infection Severity Index**); kính lúp soi chi tiết vết bệnh (**Micro-Lesion Zoom Crop**); xuất ảnh gán nhãn và file CSV kết quả.
+2. **⚡ Chẩn Đoán Hàng Loạt**: Tải lên cùng lúc nhiều ảnh thực địa hoặc thư mục; xử lý batch thời gian thực; biểu đồ phân bổ bệnh toàn lô và xuất báo cáo CSV.
+3. **💡 Khuyến Cáo Nông Học Chuyên Sâu**: Biện pháp can thiệp cấp bách cho từng mầm bệnh và cẩm nang quản lý dịch hại theo 4 giai đoạn sinh trưởng cây lúa.
+4. **📈 Đánh Giá Mô Hình**: Trực quan hóa Precision, Recall, mAP@0.5, mAP@0.5:0.95, Ma trận nhầm lẫn (Confusion Matrix) và đường cong Precision-Recall từ `evaluate.py`.
+5. **🔬 Phân Tích Lỗi & Dữ Liệu**: Trực quan hóa phân loại lỗi (TP/FP/FN/kích thước vết bệnh) theo `error_analysis.py` và thống kê lọc trùng SHA-256 / pHash Hamming từ `deduplication.py`.
+6. **📖 Model Card & Kỹ Thuật**: Đặc tả kiến trúc YOLOv8s, quy trình 6 bước khép kín và khuyến cáo an toàn thực địa.
 
+Khởi chạy ứng dụng Streamlit:
 ```bash
 streamlit run app/dashboard.py
 ```

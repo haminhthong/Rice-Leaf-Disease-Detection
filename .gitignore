@@ -32,6 +32,7 @@ data/*
 !data/README.md
 !data/sample/
 !data/sample/.gitkeep
+!data/sample/*.jpg
 datasets/
 runs/
 artifacts/

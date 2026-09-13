@@ -39,8 +39,12 @@ SPLITS: tuple[str, str, str] = ("train", "val", "test")
 # Tỷ lệ mục tiêu chia tập.
 SPLIT_RATIOS: dict[str, float] = {"train": 0.70, "val": 0.15, "test": 0.15}
 
-# Hai tệp dữ liệu nguồn mặc định.
+# Hai tệp dữ liệu nguồn mặc định (ưu tiên data/raw/ hoặc root).
 DEFAULT_ARCHIVES: tuple[Path, Path] = (
-    Path("RiceLeafAnnotatedDataset.zip"),
-    Path("dataset1.zip"),
+    Path("data/raw/RiceLeafAnnotatedDataset.zip")
+    if Path("data/raw/RiceLeafAnnotatedDataset.zip").exists()
+    else Path("RiceLeafAnnotatedDataset.zip"),
+    Path("data/raw/dataset1.zip")
+    if Path("data/raw/dataset1.zip").exists()
+    else Path("dataset1.zip"),
 )
