@@ -23,13 +23,13 @@ jobs:
       - name: Cài đặt phụ thuộc
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[app,dev]"
+          python -m pip install -e ".[dev]"
 
       - name: Kiểm tra định dạng (Ruff Format)
-        run: python -m ruff format --check src app scripts tests
+        run: python -m ruff format --check src scripts tests
 
       - name: Kiểm tra mã nguồn (Ruff Linter)
-        run: python -m ruff check src app scripts tests
+        run: python -m ruff check src scripts tests
 
       - name: Kiểm tra tính toàn vẹn phụ thuộc (Pip Check)
         run: python -m pip check
@@ -37,7 +37,6 @@ jobs:
       - name: Import Smoke Test
         run: |
           python -c "import rice_leaf_detection; print(rice_leaf_detection.__version__)"
-          python -c "from app.api import app; print(app.title)"
 
       - name: Chạy Unit Tests Suite
         run: python -m pytest -q

@@ -6,5 +6,4 @@ Pillow>=10.0
 PyYAML>=6.0
 tqdm>=4.66
 
-# Cài thêm giao diện và API bằng: pip install -e ".[app]"
-# Cài công cụ kiểm thử bằng: pip install -e ".[dev]"
+# Cài công cụ kiểm thử và lint bằng: pip install -e ".[dev]"

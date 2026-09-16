@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from PIL import Image
 
-from rice_leaf_detection.prepare import validate_split_sizes
+from rice_leaf_detection.prepare import collect_records, validate_split_sizes
 
 
 def test_tu_choi_dataset_qua_it_group() -> None:
@@ -103,3 +104,27 @@ def test_negative_image_kept() -> None:
     }
     is_neg = not record["annotations"]
     assert is_neg is True
+
+
+def test_out_of_scope_annotation_is_recorded_as_hard_negative(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    image_dir = source_root / "train" / "images"
+    label_dir = source_root / "train" / "labels"
+    image_dir.mkdir(parents=True)
+    label_dir.mkdir(parents=True)
+    (source_root / "data.yaml").write_text(
+        "names:\n  - Bacterial Leaf Blight\n  - Brown Spot\n  - Other Disease\n",
+        encoding="utf-8",
+    )
+    Image.new("RGB", (16, 16), color="green").save(image_dir / "leaf.jpg")
+    (label_dir / "leaf.txt").write_text("2 0.5 0.5 0.2 0.2\n", encoding="utf-8")
+
+    records, report = collect_records(
+        [{"name": "source", "root": source_root}],
+    )
+
+    assert len(records) == 1
+    assert records[0]["annotation_status"] == "negative"
+    assert records[0]["negative_kind"] == "out_of_scope"
+    assert report["out_of_scope_annotations"] == 1
+    assert report["out_of_scope_negative_images"] == 1

@@ -38,7 +38,7 @@ Dữ liệu được tổng hợp từ các bộ ảnh gán nhãn thực địa 
 
 ### 3.2. Phân Loại Trạng Thái Ảnh
 - **valid**: Ảnh chứa ít nhất một bounding box thuộc 2 lớp bệnh mục tiêu.
-- **negative**: Ảnh lá không chứa bệnh mục tiêu (ảnh nền/ảnh lá lành).
+- **negative**: Ảnh không có bệnh mục tiêu. Manifest phân biệt `true_negative` (nhãn rỗng hợp lệ) và `out_of_scope` (có nhãn lớp ngoài phạm vi nhưng không được đưa vào output).
 - **invalid**: Ảnh thiếu file nhãn hoặc tọa độ nhãn lỗi -> **bị loại bỏ (quarantined)**. Tuyệt đối không để ảnh lỗi/thiếu nhãn biến thành negative âm thầm, tránh đưa ảnh bệnh chưa gán nhãn vào tập làm ảnh nền.
 
 ---

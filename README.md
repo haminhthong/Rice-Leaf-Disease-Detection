@@ -1,220 +1,219 @@
-# 🌾 Rice Leaf Disease Detection
+# Rice Leaf Disease Detection
+
 [![CI](https://github.com/haminhthong/Rice-Leaf-Disease-Detection/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/Rice-Leaf-Disease-Detection/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![YOLO](https://img.shields.io/badge/Ultralytics-YOLOv8-111F68)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.38%2B-FF4B4B?logo=streamlit&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Ultralytics YOLOv8](https://img.shields.io/badge/Ultralytics-YOLOv8-111827)](https://docs.ultralytics.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> **Object Detection & Symptom Localization** trên phiến lá lúa bằng YOLOv8: Phát hiện và định vị các vùng tổn thương Bạc lá lúa (*Bacterial Leaf Blight*) và Đốm nâu (*Brown Spot*).
+## Bài toán & phạm vi ứng dụng
 
----
+Dự án phát hiện vùng tổn thương trên ảnh lá lúa bằng object detection với Ultralytics YOLOv8. Mô hình nhận diện hai lớp:
 
-## 1. Định Vị Bài Toán: Object Detection, Không Phải Classification
+| Class ID | Tên trong dataset | Tên tiếng Việt |
+| ---: | --- | --- |
+| `0` | `Bacterial_Leaf_Blight` | Bạc lá lúa |
+| `1` | `Brown_Spot` | Đốm nâu |
 
-Khác với các bài toán phân loại ảnh thông thường (*Image Classification* chỉ gán 1 nhãn tổng thể cho cả bức ảnh), dự án này tiếp cận theo hướng **Object Detection**:
-- Một phiến lá có thể chứa **nhiều vết bệnh cùng lúc** hoặc đồng thời xuất hiện cả hai loại bệnh.
-- Mục tiêu kỹ thuật là **khoanh vùng chính xác tọa độ tổn thương (Bounding Box)** và phân loại từng đốm bệnh cụ thể, hỗ trợ công tác trinh sát thực địa (*Field Scouting*).
+Phạm vi gồm chuẩn hóa dữ liệu YOLO, kiểm tra annotation, chống trùng/rò rỉ giữa các tập, huấn luyện, đánh giá, phân tích lỗi và dự đoán từ CLI. Kết quả chỉ là công cụ hỗ trợ sàng lọc trên ảnh; không thay thế chẩn đoán thực địa hoặc khuyến cáo xử lý bệnh.
 
-```text
-                  [ Ảnh Phiến Lá Lúa ]
-                            │
-                            ▼
-                    [ Mô hình YOLOv8 ]
-                            │
-              ┌─────────────┴─────────────┐
-              ▼                           ▼
-    [ Bounding Box 1 ]          [ Bounding Box 2 ]
-   Bacterial Leaf Blight            Brown Spot
-     (Độ tin cậy: 92%)           (Độ tin cậy: 87%)
-```
+## Luồng logic, luồng dữ liệu và pipeline
 
-### Hai Lớp Bệnh Mục Tiêu
-
-| Class ID | Tên Chuẩn | Tên Tiếng Việt | Đặc Điểm Nhận Diện Tổn Thương |
-|---|---|---|---|
-| `0` | `Bacterial_Leaf_Blight` | Bạc lá lúa | Vết sọc mọng nước dọc mép lá, màu vàng nhạt đến xám trắng do vi khuẩn *Xanthomonas oryzae* |
-| `1` | `Brown_Spot` | Đốm nâu | Các đốm hình tròn hoặc bầu dục màu nâu thẫm viền vàng do nấm *Bipolaris oryzae* |
-
----
-
-## 2. Quy Trình Kỹ Thuật (6 Bước Cốt Lõi)
-
-Dự án được xây dựng theo một luồng kỹ thuật duy nhất, tinh gọn và minh bạch:
+Toàn bộ mã nguồn, cấu hình và báo cáo tuân theo pipeline duy nhất sau:
 
 ```mermaid
 flowchart TD
-    A[1. Ảnh lá lúa gán nhãn thô<br/>Bounding Box & Polygon] --> B[2. Kiểm tra chất lượng Annotation<br/>Valid / Negative / Loại bỏ nhãn lỗi]
-    B --> C[3. Lọc trùng SHA-256 & Gom nhóm biến thể<br/>Chia Train/Val/Test chống rò rỉ ranh giới]
-    C --> D[4. Huấn luyện YOLOv8s @ 640<br/>Augmentation chỉ áp dụng cho tập Train]
-    D --> E[5. Đánh giá khách quan<br/>Precision, Recall, mAP@0.5, mAP@0.5:0.95]
-    E --> F[6. Phân tích lỗi & Triển khai Demo<br/>FastAPI Service & Streamlit Dashboard]
+    A[ZIP dữ liệu nguồn] --> B[Giải nén an toàn]
+    B --> C[Đọc data.yaml và chuẩn hóa class]
+    C --> D[Kiểm tra ảnh và annotation]
+    D -->|lỗi hoặc thiếu nhãn| Q[Loại khỏi dataset và ghi báo cáo]
+    D -->|hợp lệ| E[SHA-256 và pHash]
+    E --> F[Group-aware split<br/>Train 70% / Val 15% / Test 15%]
+    F --> G[data.yaml + manifest.csv + data_report.json]
+    G --> H[Train YOLOv8s @ 640]
+    H --> I[Evaluate trên Val hoặc Test]
+    I --> J[Phân tích lỗi theo IoU và kích thước lesion]
+    H --> K[best.pt]
+    K --> L[Predict trên ảnh hoặc thư mục]
+    L --> M[DETECTED hoặc NO_SYMPTOM_DETECTED]
 ```
 
-### Các Điểm Nhấn Kỹ Thuật (Engineering Highlights)
-1. **Missing Annotation $\neq$ Negative Image**: Nếu ảnh không có file nhãn hoặc tọa độ lỗi, hệ thống đánh dấu là `invalid` và loại bỏ, tránh việc vô tình đưa ảnh bệnh chưa gán nhãn vào dataset dưới dạng ảnh nền (*background*).
-2. **Lọc trùng SHA-256 (Exact Deduplication)**: Loại bỏ các ảnh trùng lặp tuyệt đối để cùng một nội dung ảnh không bao giờ xuất hiện ở cả tập Train và tập Test.
-3. **Chia tập chống rò rỉ (Group-Aware Split)**: Gom nhóm các ảnh biến thể sinh ra từ cùng ảnh gốc (crop, rotate, pHash gần trùng) vào cùng một `group_id` trước khi chia tập Train (70%) / Val (15%) / Test (15%).
-4. **Train-only Data Augmentation**: Kỹ thuật tăng cường dữ liệu (HSV, xoay, dịch chuyển, lật, mosaic) chỉ bật trong quá trình huấn luyện; tập Validation và Test dùng tiền xử lý tất định để đảm bảo tính khách quan.
+### Luồng xử lý dữ liệu
 
----
+1. `scripts/prepare_data.py` gọi `rice_leaf_detection.prepare`. Script tìm ZIP mặc định ở thư mục gốc hoặc `data/raw/`, giải nén vào `data/extracted/` bằng cơ chế kiểm tra đường dẫn an toàn.
+2. Mỗi nguồn được dò `data.yaml` cùng các split ảnh/nhãn. Annotation được đọc theo định dạng YOLO; polygon nguồn được chuyển thành bounding box bao quanh, sai số biên nhỏ do làm tròn được kẹp về miền hợp lệ.
+3. Ảnh được phân loại thành `valid`, `negative` hoặc `invalid`. Ảnh thiếu nhãn, nhãn sai định dạng hoặc ảnh hỏng bị loại; nhãn lớp ngoài phạm vi được ghi là hard negative trong manifest, không được biến thành nhãn mục tiêu.
+4. Ảnh trùng nội dung được nhận diện bằng SHA-256. Các biến thể gần giống được gom theo `original_key` và pHash, sau đó toàn bộ group được chia cùng một split để tránh leakage.
+5. Dataset sạch được ghi vào `data/processed/rice_leaf_detection/`, gồm `train/`, `val/`, `test/`, `data.yaml`, `manifest.csv` và `data_report.json`.
 
-## 3. Cấu Trúc Thư Mục Dự Án
+### Luồng huấn luyện, đánh giá và dự đoán
+
+- `scripts/train.py` nạp `configs/default.yaml`, dùng `yolov8s`, kích thước ảnh `640`, seed `42` và ghi run vào `runs/train/<run_name>/`.
+- `scripts/evaluate.py` gọi `model.val` trên `val` hoặc `test`, ghi `metrics.json`, `per_class_metrics.csv` và biểu đồ vào `runs/evaluate/`.
+- `python -m rice_leaf_detection.error_analysis` ghép prediction với ground truth bằng IoU, phân loại TP/FP/FN và lỗi theo kích thước tổn thương; báo cáo nằm trong `reports/error_analysis/`.
+- `scripts/predict.py` nạp `best.pt`, dự đoán trên một ảnh hoặc thư mục, lưu ảnh kết quả vào `runs/predict/results/` và in trạng thái `DETECTED` hoặc `NO_SYMPTOM_DETECTED`.
+
+Các thư mục `data/extracted/`, `data/processed/`, `runs/` và `reports/` là output có thể tạo lại, không phải mã nguồn và không cần commit.
+
+## Hợp đồng dữ liệu và annotation
+
+Dataset đầu vào cần có cấu trúc YOLO với các split `train`, `valid` hoặc `val`, `test`; mỗi split có `images/` và `labels/`, cùng một `data.yaml`.
+
+Mỗi dòng nhãn có dạng:
+
+```text
+class_id x_center y_center width height
+```
+
+Tọa độ được chuẩn hóa trong `[0, 1]`. File nhãn rỗng là ảnh `negative` hợp lệ. File nhãn thiếu hoặc có lỗi là `invalid` và bị loại khỏi dataset sạch. Chỉ hai class mục tiêu được giữ lại.
+
+Pipeline ghi SHA-256, pHash, `original_key`, `group_id` và split vào `manifest.csv`. Bước kiểm tra cuối bảo đảm group, SHA-256 và original key không xuất hiện ở nhiều split; đồng thời ảnh và nhãn của từng split phải khớp nhau.
+
+## Cấu trúc thư mục dự án
 
 ```text
 rice-leaf-disease-recognition/
-├── app/
-│   ├── api.py                  # FastAPI REST Service: /health, /predict
-│   ├── dashboard.py            # Streamlit Interactive Web Dashboard (6 Tabs cao cấp)
-│   ├── dependencies.py         # Singleton detector loader
-│   ├── schemas.py              # Pydantic request/response schemas
-│   ├── settings.py             # Cấu hình runtime từ biến môi trường
-│   └── validation.py           # Kiểm tra magic bytes & giới hạn kích thước ảnh
-├── configs/
-│   └── default.yaml            # Cấu hình siêu tham số mô hình & huấn luyện
+├── .github/workflows/ci.yml
+├── configs/default.yaml
 ├── data/
-│   ├── raw/                    # Dữ liệu nguồn nén nguyên bản (.zip)
-│   ├── sample/                 # Bộ ảnh mẫu thực địa thử nghiệm 1-click
-│   └── README.md               # Data Card chi tiết
+│   ├── README.md
+│   └── sample/
 ├── scripts/
-│   ├── prepare_data.py         # Bước 1: Làm sạch và chia tập dữ liệu
-│   ├── train.py                # Bước 2: Huấn luyện mô hình YOLOv8
-│   ├── evaluate.py             # Bước 3: Đánh giá mAP và per-class metrics
-│   └── predict.py              # Bước 4: Chạy suy luận từ dòng lệnh
+│   ├── prepare_data.py
+│   ├── train.py
+│   ├── evaluate.py
+│   └── predict.py
 ├── src/rice_leaf_detection/
-│   ├── annotations.py          # Chuẩn hóa nhãn Polygon -> Bounding Box
-│   ├── config.py               # Quản lý cấu hình YAML bằng Dataclass
-│   ├── constants.py            # Hằng số lớp bệnh và trạng thái dữ liệu
-│   ├── deduplication.py        # Lọc trùng SHA-256 và gom nhóm pHash
-│   ├── error_analysis.py       # Phân loại lỗi TP, FP, FN & kích thước tổn thương
-│   ├── evaluate.py             # Logic tính toán mAP và Precision/Recall
-│   ├── inference.py            # RiceLeafDetector và Detection dataclass
-│   ├── predict.py              # Logic suy luận dự đoán
-│   ├── prepare.py              # Logic tiền xử lý và group-aware split
-│   ├── train.py                # Logic huấn luyện với Ultralytics
-│   └── utils.py                # Tiện ích hash, seed, safe ZIP extraction
-├── tests/                      # Bộ Unit Tests toàn diện (44 tests)
-├── MODEL_CARD.md              # Model Card (phạm vi, độ đo, giới hạn)
-├── pyproject.toml             # Khai báo package và công cụ kiểm thử
-└── requirements.txt            # Danh mục phụ thuộc chính
+│   ├── annotations.py
+│   ├── config.py
+│   ├── constants.py
+│   ├── deduplication.py
+│   ├── error_analysis.py
+│   ├── evaluate.py
+│   ├── inference.py
+│   ├── predict.py
+│   ├── prepare.py
+│   ├── train.py
+│   └── utils.py
+├── tests/
+├── LICENSE
+├── pyproject.toml
+├── requirements.txt
+└── README.md
 ```
 
-> [!NOTE]
-> **Dự án chạy Native thuần Python**: Toàn bộ hệ thống được thiết kế để thực thi trực tiếp trên môi trường máy chủ hoặc máy tính cá nhân qua Python virtual environment (`venv`), không phụ thuộc Docker hay container ảo hóa.
+## Cài đặt
 
----
-
-## 4. Cài Đặt Môi Trường
-
-Yêu cầu **Python 3.10** trở lên:
+Yêu cầu Python 3.10 trở lên.
 
 ```bash
-# 1. Khởi tạo môi trường ảo
 python -m venv .venv
-
-# Kích hoạt trên Windows:
-.\.venv\Scripts\Activate.ps1
-# Hoặc trên Linux/macOS:
-source .venv/bin/activate
-
-# 2. Cài đặt package cùng các phụ thuộc mở rộng
-python -m pip install --upgrade pip
-pip install -e ".[app,dev]"
 ```
 
----
+Kích hoạt môi trường:
 
-## 5. Hướng Dẫn Sử Dụng (End-to-End Workflow)
+```bash
+# Windows PowerShell
+.venv\\Scripts\\Activate.ps1
 
-Toàn bộ quy trình từ dữ liệu thô đến dự đoán có thể thực thi tuần tự qua 4 script:
+# Linux/macOS
+source .venv/bin/activate
+```
 
-### Bước 1: Chuẩn Bị & Chia Tập Dữ Liệu
-Giải nén dữ liệu nguồn, lọc trùng SHA-256 và chia tập Train/Val/Test chống rò rỉ:
+Cài package ở chế độ editable cùng công cụ phát triển:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+Nếu chỉ cần chạy pipeline, có thể cài dependency runtime bằng:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+## Chạy pipeline
+
+### 1. Chuẩn bị dữ liệu
+
+Đặt `RiceLeafAnnotatedDataset.zip` và `dataset1.zip` ở thư mục gốc hoặc `data/raw/`, sau đó chạy:
+
 ```bash
 python scripts/prepare_data.py --overwrite
 ```
-*Kết quả sinh ra tại thư mục `data/processed/rice_leaf_detection/` gồm: `data.yaml`, `manifest.csv`, `data_report.json`.*
 
-### Bước 2: Huấn Luyện Mô Hình YOLOv8
-Huấn luyện mô hình YOLOv8s theo siêu tham số quản lý trong `configs/default.yaml`:
+Có thể truyền nguồn và thư mục output riêng:
+
+```bash
+python scripts/prepare_data.py \
+  --archives data/raw/RiceLeafAnnotatedDataset.zip data/raw/dataset1.zip \
+  --output data/processed/rice_leaf_detection \
+  --overwrite
+```
+
+### 2. Huấn luyện
+
 ```bash
 python scripts/train.py --epochs 50 --batch 16
 ```
-*Trọng số tốt nhất được lưu tại `runs/train/<run_name>/weights/best.pt`.*
 
-### Bước 3: Đánh Giá Hiệu Năng Mô Hình
-Tính toán Precision, Recall, mAP@0.5 và mAP@0.5:0.95 trên tập Validation hoặc Test:
+Các tham số mặc định lấy từ `configs/default.yaml`. Có thể ghi đè bằng `--config`, `--data`, `--model`, `--imgsz`, `--patience`, `--device`, `--workers`, `--runs-dir`, `--name` hoặc `--resume`.
+
+### 3. Đánh giá
+
 ```bash
-python scripts/evaluate.py --weights runs/train/yolov8s_640/weights/best.pt --split val
-python scripts/evaluate.py --weights runs/train/yolov8s_640/weights/best.pt --split test
+python scripts/evaluate.py \
+  --weights runs/train/<run_name>/weights/best.pt \
+  --split val
+
+python scripts/evaluate.py \
+  --weights runs/train/<run_name>/weights/best.pt \
+  --split test
 ```
 
-### Bước 4: Suy Luận Từ Dòng Lệnh (CLI Prediction)
-Chạy dự đoán nhanh trên ảnh mẫu hoặc thư mục ảnh:
+Mỗi lệnh tạo metric tổng hợp và metric theo lớp cho split được chọn.
+
+### 4. Phân tích lỗi
+
 ```bash
-python scripts/predict.py --weights runs/train/yolov8s_640/weights/best.pt --source data/sample/bacterial_leaf_blight_sample.jpg
+python -m rice_leaf_detection.error_analysis \
+  --weights runs/train/<run_name>/weights/best.pt \
+  --dataset data/processed/rice_leaf_detection \
+  --split val
 ```
 
----
+Có thể điều chỉnh `--confidence`, `--iou`, `--imgsz` và `--output`.
 
-## 6. Giao Diện & Dịch Vụ Ứng Dụng
+### 5. Dự đoán
 
-### 6.1. Streamlit Dashboard (Trực Quan Cao Cấp)
-Giao diện **Precision Agriculture AI Dashboard** hiện đại với 6 tab chuyên sâu:
-1. **🎯 Chẩn Đoán & Định Vị**: Thử nghiệm 1-click với mẫu thực địa (Bạc lá lúa, Đốm nâu, Nhiễm chéo) hoặc tải ảnh từ thiết bị; tính toán diện tích tổn thương (**Infection Severity Index**); kính lúp soi chi tiết vết bệnh (**Micro-Lesion Zoom Crop**); xuất ảnh gán nhãn và file CSV kết quả.
-2. **⚡ Chẩn Đoán Hàng Loạt**: Tải lên cùng lúc nhiều ảnh thực địa hoặc thư mục; xử lý batch thời gian thực; biểu đồ phân bổ bệnh toàn lô và xuất báo cáo CSV.
-3. **💡 Khuyến Cáo Nông Học Chuyên Sâu**: Biện pháp can thiệp cấp bách cho từng mầm bệnh và cẩm nang quản lý dịch hại theo 4 giai đoạn sinh trưởng cây lúa.
-4. **📈 Đánh Giá Mô Hình**: Trực quan hóa Precision, Recall, mAP@0.5, mAP@0.5:0.95, Ma trận nhầm lẫn (Confusion Matrix) và đường cong Precision-Recall từ `evaluate.py`.
-5. **🔬 Phân Tích Lỗi & Dữ Liệu**: Trực quan hóa phân loại lỗi (TP/FP/FN/kích thước vết bệnh) theo `error_analysis.py` và thống kê lọc trùng SHA-256 / pHash Hamming từ `deduplication.py`.
-6. **📖 Model Card & Kỹ Thuật**: Đặc tả kiến trúc YOLOv8s, quy trình 6 bước khép kín và khuyến cáo an toàn thực địa.
-
-Khởi chạy ứng dụng Streamlit:
 ```bash
-streamlit run app/dashboard.py
+python scripts/predict.py \
+  --weights runs/train/<run_name>/weights/best.pt \
+  --source data/sample/bacterial_leaf_blight_sample.jpg
 ```
 
-### 6.2. FastAPI RESTful Service
-Khởi chạy API server với 2 endpoints chuẩn:
-```bash
-uvicorn app.api:app --host 0.0.0.0 --port 8000
-```
-- `GET /health`: Kiểm tra trạng thái máy chủ (`{"status": "ok"}`).
-- `POST /predict`: Gửi file ảnh và nhận danh sách bounding box kèm độ tin cậy.
+`--source` nhận một file ảnh hoặc thư mục ảnh. Dùng `--save-txt` nếu cần lưu thêm nhãn YOLO dự đoán.
 
-Gọi API bằng `curl`:
-```bash
-curl -X POST http://localhost:8000/predict -F "file=@data/sample/bacterial_leaf_blight_sample.jpg"
-```
+## Kiểm tra cục bộ và CI
 
----
+Workflow `.github/workflows/ci.yml` chạy trên Python 3.11 với các bước: cài package editable, kiểm tra format, lint, dependency và unit test.
 
-## 7. Kiểm Thử & Đảm Bảo Chất Lượng Code (CI/CD)
-
-Hệ thống CI tự động kiểm tra định dạng, chất lượng mã nguồn và tính toàn vẹn phụ thuộc:
+Chạy cùng các bước trên máy local:
 
 ```bash
-# Kiểm tra định dạng code
-python -m ruff format --check src app scripts tests
-
-# Kiểm tra quy chuẩn linter
-python -m ruff check src app scripts tests
-
-# Kiểm tra tính toàn vẹn phụ thuộc
+python -m ruff format --check src scripts tests
+python -m ruff check src scripts tests
 python -m pip check
-
-# Chạy toàn bộ bộ kiểm thử Unit Tests
-python -m pytest -v
+python -m pytest -q
 ```
 
----
+## Giới hạn
 
-## 8. Khuyến Cáo & Miễn Trừ Trách Nhiệm
+- Kết quả phụ thuộc chất lượng ảnh, annotation, điều kiện ánh sáng và độ tương đồng giữa dữ liệu huấn luyện với ảnh thực tế.
+- Dữ liệu và model mặc định không được xem là đại diện cho mọi giống lúa, giai đoạn sinh trưởng hoặc điều kiện canh tác.
+- Ngưỡng confidence và IoU trong `configs/default.yaml` là tham số vận hành, cần hiệu chỉnh theo mục tiêu sử dụng.
+- Không dùng kết quả dự đoán đơn lẻ để quyết định xử lý nông nghiệp nếu chưa có kiểm tra bổ sung.
 
-- **Mục đích hỗ trợ**: Mô hình là công cụ hỗ trợ thị giác máy tính phục vụ sàng lọc và trinh sát sơ bộ ngoài đồng ruộng.
-- **Trách nhiệm chuyên môn**: Tuyệt đối không tự ý quyết định liều lượng hoặc phun thuốc bảo vệ thực vật khi chưa có sự thẩm định và hướng dẫn trực tiếp từ kỹ sư nông nghiệp hoặc cán bộ chuyên môn.
+## Giấy phép
 
----
-
-## 9. Giấy Phép (License)
-
-Dự án được phân phối theo giấy phép mã nguồn mở [MIT License](LICENSE).
+Dự án được phát hành theo giấy phép MIT. Xem [LICENSE](LICENSE).

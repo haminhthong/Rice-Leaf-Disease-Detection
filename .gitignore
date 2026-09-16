@@ -24,7 +24,6 @@ Ultralytics/
 build/
 dist/
 
-
 # Data, model weights, and experiment runs
 data/
 !data/
@@ -35,11 +34,8 @@ data/*
 !data/sample/*.jpg
 datasets/
 runs/
-artifacts/
 reports/
 *.pt
-*.onnx
-*.engine
 *.zip
 *.cache
 .env

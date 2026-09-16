@@ -14,7 +14,7 @@ SEED: int = 42
 # Tên lớp theo định dạng nhãn YOLO.
 CLASS_NAMES: list[str] = ["Bacterial_Leaf_Blight", "Brown_Spot"]
 
-# Tên tiếng Việt dùng khi hiển thị trên API và giao diện.
+# Tên tiếng Việt dùng cho kết quả CLI.
 CLASS_NAMES_VI: dict[int, str] = {
     0: "Bạc lá lúa",
     1: "Đốm nâu",

@@ -112,6 +112,8 @@ def collect_records(
         "valid_images": 0,
         "negative_images": 0,
         "invalid_or_missing_annotations": 0,
+        "out_of_scope_annotations": 0,
+        "out_of_scope_negative_images": 0,
         "missing_label_files": [],
         "invalid_labels": [],
         "corrupt_images": [],
@@ -143,6 +145,7 @@ def collect_records(
                 annotations, errors, duplicate_count, unknown_count = parse_label_file_detailed(
                     label_path, class_map
                 )
+                report["out_of_scope_annotations"] += unknown_count
                 report["invalid_labels"].extend(errors)
                 report["duplicate_annotation_lines_removed"] += duplicate_count
                 report["clipped_boxes"] += sum(
@@ -178,11 +181,6 @@ def collect_records(
                 if annotation_status == STATUS_NEGATIVE and not keep_negatives:
                     continue
 
-                if annotation_status == STATUS_VALID:
-                    report["valid_images"] += 1
-                else:
-                    report["negative_images"] += 1
-
                 try:
                     with Image.open(image_path) as img:
                         rgb = img.convert("RGB")
@@ -191,6 +189,13 @@ def collect_records(
                 except Exception as exc:
                     report["corrupt_images"].append({"path": str(image_path), "error": str(exc)})
                     continue
+
+                if annotation_status == STATUS_VALID:
+                    report["valid_images"] += 1
+                else:
+                    report["negative_images"] += 1
+                    if unknown_count:
+                        report["out_of_scope_negative_images"] += 1
 
                 records.append(
                     {
@@ -207,6 +212,13 @@ def collect_records(
                         "original_key": f"{source['name']}:{image_path.stem.split('.rf.')[0]}",
                         "annotation_status": annotation_status,
                         "is_negative": annotation_status == STATUS_NEGATIVE,
+                        "negative_kind": (
+                            "out_of_scope"
+                            if annotation_status == STATUS_NEGATIVE and unknown_count
+                            else "true_negative"
+                            if annotation_status == STATUS_NEGATIVE
+                            else ""
+                        ),
                         "annotations": annotations,
                     }
                 )
@@ -365,6 +377,7 @@ def write_dataset(
                 "height": record["height"],
                 "annotation_status": record["annotation_status"],
                 "is_negative": record["is_negative"],
+                "negative_kind": record.get("negative_kind", ""),
                 "instances_class_0": counts[0],
                 "instances_class_1": counts[1],
             }
@@ -394,6 +407,8 @@ def write_dataset(
             "invalid_or_missing_annotations_discarded": report.get(
                 "invalid_or_missing_annotations", 0
             ),
+            "out_of_scope_annotations": report.get("out_of_scope_annotations", 0),
+            "out_of_scope_negative_images": report.get("out_of_scope_negative_images", 0),
             "clipped_boxes": report.get("clipped_boxes", 0),
         },
         "splits": split_summary,

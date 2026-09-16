@@ -92,7 +92,8 @@ def parse_annotation_line(
     - Nếu là BBox (5 thông số: `class x y w h`), kiểm tra tọa độ chuẩn hóa [0, 1].
     - Nếu là Polygon (>= 7 thông số: `class x1 y1 x2 y2 ...`), tính bounding box bao quanh
       (Bounding Envelope).
-    - Cắt bớt phần viền bị xén ngoài khung ảnh ([0, 1]).
+    - Kẹp phần viền hộp về [0, 1] khi sai số chỉ nằm trong ngưỡng làm tròn.
+      Tọa độ vượt ngưỡng bị từ chối để tránh sửa nhãn lỗi âm thầm.
 
     Args:
         line: Chuỗi văn bản đại diện 1 dòng trong file label.

@@ -34,12 +34,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    import torch
-    from ultralytics import YOLO
-
     configure_utf8_console()
     args = parse_args()
     config = load_config(args.config)
+    import torch
+    from ultralytics import YOLO
 
     args.data = args.data or config.data.yaml
     args.imgsz = args.imgsz if args.imgsz is not None else config.data.image_size
@@ -61,6 +60,7 @@ def main() -> None:
     )
 
     model = YOLO(str(args.weights))
+    # Dùng ngưỡng thấp và IoU chuẩn của Ultralytics để tính mAP đầy đủ.
     metrics = model.val(
         data=str(args.data),
         split=args.split,

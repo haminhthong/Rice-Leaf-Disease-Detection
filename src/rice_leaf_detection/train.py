@@ -6,8 +6,6 @@ import sys
 import time
 from pathlib import Path
 
-from ultralytics import YOLO
-
 from .config import load_config
 from .utils import configure_utf8_console, seed_everything
 
@@ -34,6 +32,7 @@ def main() -> None:
     args = parse_args()
     config = load_config(args.config)
     import torch
+    from ultralytics import YOLO
 
     args.data = args.data or config.data.yaml
     args.model = args.model or config.model.weights
@@ -77,7 +76,7 @@ def main() -> None:
         if not args.data.exists():
             raise FileNotFoundError(f"Không tìm thấy {args.data}. Hãy chạy prepare_data.py trước.")
         run_name = args.name or (
-            f"{config.model.architecture}_640_{time.strftime('%Y%m%d_%H%M%S')}"
+            f"{config.model.architecture}_{args.imgsz}_{time.strftime('%Y%m%d_%H%M%S')}"
         )
         model = YOLO(args.model)
         aug = config.training.augmentation

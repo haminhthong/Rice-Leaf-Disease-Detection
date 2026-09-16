@@ -205,6 +205,15 @@ def run_error_analysis(
     """Phân tích lỗi mô hình theo lát cắt kích thước tổn thương và phân loại lỗi."""
     from ultralytics import YOLO
 
+    if split not in {"val", "test"}:
+        raise ValueError("split phải là 'val' hoặc 'test'")
+    if not 0 <= confidence <= 1:
+        raise ValueError("confidence phải nằm trong khoảng [0, 1]")
+    if not 0 < iou <= 1:
+        raise ValueError("iou phải nằm trong khoảng (0, 1]")
+    if image_size <= 0:
+        raise ValueError("image_size phải lớn hơn 0")
+
     weights_path = Path(weights_path)
     dataset_dir = Path(dataset_dir)
     output_dir = Path(output_dir)
@@ -232,7 +241,7 @@ def run_error_analysis(
             source=str(image_path),
             imgsz=image_size,
             conf=confidence,
-            iou=0.7,
+            iou=iou,
             verbose=False,
         )[0]
         predictions: list[LabeledBox] = [
