@@ -45,6 +45,8 @@ flowchart TD
 4. Ảnh trùng nội dung được nhận diện bằng SHA-256. Các biến thể gần giống được gom theo `original_key` và pHash, sau đó toàn bộ group được chia cùng một split để tránh leakage.
 5. Dataset sạch được ghi vào `data/processed/rice_leaf_detection/`, gồm `train/`, `val/`, `test/`, `data.yaml`, `manifest.csv` và `data_report.json`.
 
+Trước khi ghi output, pipeline yêu cầu tối thiểu 10 group ở `train`, 5 group ở `val`, 5 group ở `test`, đồng thời mỗi class phải có ít nhất 20 instance trong `val` và `test`. Dataset không đạt các điều kiện này sẽ bị từ chối.
+
 ### Luồng huấn luyện, đánh giá và dự đoán
 
 - `scripts/train.py` nạp `configs/default.yaml`, dùng `yolov8s`, kích thước ảnh `640`, seed `42` và ghi run vào `runs/train/<run_name>/`.
@@ -66,7 +68,9 @@ class_id x_center y_center width height
 
 Tọa độ được chuẩn hóa trong `[0, 1]`. File nhãn rỗng là ảnh `negative` hợp lệ. File nhãn thiếu hoặc có lỗi là `invalid` và bị loại khỏi dataset sạch. Chỉ hai class mục tiêu được giữ lại.
 
-Pipeline ghi SHA-256, pHash, `original_key`, `group_id` và split vào `manifest.csv`. Bước kiểm tra cuối bảo đảm group, SHA-256 và original key không xuất hiện ở nhiều split; đồng thời ảnh và nhãn của từng split phải khớp nhau.
+Pipeline ghi SHA-256, pHash, `original_key`, `group_id`, `annotation_status`, `negative_kind` và split vào `manifest.csv`. Bước kiểm tra cuối bảo đảm group, SHA-256 và original key không xuất hiện ở nhiều split; đồng thời ảnh và nhãn của từng split phải khớp nhau.
+
+`data_report.json` ghi tổng số ảnh sạch, ảnh trùng tuyệt đối đã loại, liên kết pHash, annotation thiếu/lỗi, annotation ngoài phạm vi và box bị kẹp biên.
 
 ## Cấu trúc thư mục dự án
 
@@ -113,7 +117,7 @@ Kích hoạt môi trường:
 
 ```bash
 # Windows PowerShell
-.venv\\Scripts\\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
 # Linux/macOS
 source .venv/bin/activate
@@ -151,6 +155,8 @@ python scripts/prepare_data.py \
   --overwrite
 ```
 
+Các tùy chọn khác là `--extract-dir`, `--phash-distance` và `--drop-negatives`. Mặc định pipeline giữ ảnh negative; dùng `--drop-negatives` để loại chúng trước khi chia tập.
+
 ### 2. Huấn luyện
 
 ```bash
@@ -158,6 +164,8 @@ python scripts/train.py --epochs 50 --batch 16
 ```
 
 Các tham số mặc định lấy từ `configs/default.yaml`. Có thể ghi đè bằng `--config`, `--data`, `--model`, `--imgsz`, `--patience`, `--device`, `--workers`, `--runs-dir`, `--name` hoặc `--resume`.
+
+Huấn luyện dùng trọng số `yolov8s.pt` theo cấu hình mặc định. Có thể đặt file ở thư mục gốc hoặc truyền trọng số/kiến trúc khác qua `--model`.
 
 ### 3. Đánh giá
 
@@ -173,6 +181,8 @@ python scripts/evaluate.py \
 
 Mỗi lệnh tạo metric tổng hợp và metric theo lớp cho split được chọn.
 
+`evaluate.py` cũng nhận `--config`, `--data`, `--imgsz`, `--batch`, `--device` và `--output`. Với run mặc định, báo cáo cụ thể nằm trong `runs/evaluate/<run_name>_<split>/`.
+
 ### 4. Phân tích lỗi
 
 ```bash
@@ -184,6 +194,8 @@ python -m rice_leaf_detection.error_analysis \
 
 Có thể điều chỉnh `--confidence`, `--iou`, `--imgsz` và `--output`.
 
+Output mặc định gồm `reports/error_analysis/<split>_errors.csv` và `reports/error_analysis/error_summary.json`.
+
 ### 5. Dự đoán
 
 ```bash
@@ -194,9 +206,11 @@ python scripts/predict.py \
 
 `--source` nhận một file ảnh hoặc thư mục ảnh. Dùng `--save-txt` nếu cần lưu thêm nhãn YOLO dự đoán.
 
+Có thể ghi đè `--config`, `--conf`, `--iou` và `--output`; ngưỡng mặc định lấy từ `configs/default.yaml`.
+
 ## Kiểm tra cục bộ và CI
 
-Workflow `.github/workflows/ci.yml` chạy trên Python 3.11 với các bước: cài package editable, kiểm tra format, lint, dependency và unit test.
+Workflow `.github/workflows/ci.yml` chạy trên Python 3.11 với các bước: cài package editable, format, lint, kiểm tra dependency, import smoke test và unit test.
 
 Chạy cùng các bước trên máy local:
 
